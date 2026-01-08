@@ -3,6 +3,7 @@ st-gsheets-connection
 plotly
 pandas
 numpy
+google-genai
 altair
 requests
 aiohttp
