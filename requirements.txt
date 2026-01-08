@@ -1,0 +1,8 @@
+streamlit
+st-gsheets-connection
+plotly
+pandas
+numpy
+altair
+requests
+aiohttp
