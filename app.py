@@ -149,7 +149,8 @@ st.divider()
 def metric_summary(metric: str):
     # counts
     if metric in COUNT_METRICS:
-        return (int(data[metric].sum()), "no benchmark", "off", "normal")
+        total = int(data[metric].sum())
+        return (f"{total:,}", "no benchmark", "off", "normal")
 
     # rates
     if metric in RATE_METRICS:
@@ -184,7 +185,7 @@ def scorecard_breakdown(dimension: str, metric: str):
 
     return pd.DataFrame(columns=[dimension, "value"])
 
-def bar_chart(t: pd.DataFrame, y_col: str):
+def bar_chart(t: pd.DataFrame, y_col: str, metric: str):
     # if metric is a rate (0-1), show percentage on axis
     is_rate = t["value"].max() <= 1.0 and t["value"].min() >= 0.0
     x = (t["value"] * 100) if is_rate else t["value"]
@@ -195,6 +196,21 @@ def bar_chart(t: pd.DataFrame, y_col: str):
         orientation="h",
         marker=dict(color=CHART_CATEGORY_COLORS),
     ))
+    
+    if metric in BENCHMARKS and is_rate:
+        benchmark_pct = BENCHMARKS[metric] * 100
+
+        fig.add_vline(
+            x=benchmark_pct,
+            line_width=2,
+            line_dash="dash",
+            line_color="gray",
+            annotation_text=f"Benchmark {benchmark_pct:.2f}%",
+            annotation_position="top",
+            annotation_y=0.99,     
+            annotation_yref="paper" 
+        )
+
     fig.update_layout(
         margin=dict(l=10, r=10, t=10, b=10),
         height=220,
@@ -211,7 +227,7 @@ for i in range(min(4, len(metrics))):
     dim0 = dimensions[0]
     if data[dim0].nunique() < 10:
         t = scorecard_breakdown(dim0, m)
-        cols[i].plotly_chart(bar_chart(t, dim0), config={"displayModeBar": False})
+        cols[i].plotly_chart(bar_chart(t, dim0, m), config={"displayModeBar": False})
 
 
 # ---- table
@@ -233,12 +249,12 @@ edited_data = st.data_editor(
         "bounce_rate": st.column_config.NumberColumn(format="%.2f%%", disabled=True),
         "unsubscribe_rate": st.column_config.NumberColumn(format="%.3f%%", disabled=True),
         "spam_complaint_rate": st.column_config.NumberColumn(format="%.4f%%", disabled=True),
-        "sends": st.column_config.TextColumn(disabled=True),
-        "opens": st.column_config.TextColumn(disabled=True),
-        "clicks": st.column_config.TextColumn(disabled=True),
-        "spam_complaints": st.column_config.TextColumn(disabled=True),
-        "unsubscribes": st.column_config.TextColumn(disabled=True),
-        "bounced": st.column_config.TextColumn(disabled=True),
+        "sends": st.column_config.NumberColumn(format="localized", disabled=True),
+        "opens": st.column_config.NumberColumn(format="localized", disabled=True),
+        "clicks": st.column_config.NumberColumn(format="localized", disabled=True),
+        "spam_complaints": st.column_config.NumberColumn(format="localized", disabled=True),
+        "unsubscribes": st.column_config.NumberColumn(format="localized", disabled=True),
+        "bounced": st.column_config.NumberColumn(format="localized", disabled=True),
     })
 
 if "group" in dimensions and "campaign_id" in dimensions:
