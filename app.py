@@ -9,7 +9,7 @@ from ai_agent import ask_gemini
 
 st.set_page_config(
     page_title="Klaviyo Pulse",
-    page_icon="K",
+    page_icon="🏴",
     layout="wide",
 )
 
@@ -27,11 +27,11 @@ CHART_CATEGORY_COLORS = [
 ]
 
 BENCHMARKS = {
-    "open_rate": 0.432,           # 43.2%
-    "click_rate": 0.0125,         # 1.25%
-    "bounce_rate": 0.00631,       # 0.631%
-    "spam_complaint_rate": 0.0000787,  # 0.00787%
-    "unsubscribe_rate": 0.00285,  # 0.285%
+    "open_rate": 0.432,           
+    "click_rate": 0.0125,         
+    "bounce_rate": 0.00631,       
+    "spam_complaint_rate": 0.0000787,  
+    "unsubscribe_rate": 0.00285, 
 }
 
 RATE_METRICS = {
@@ -60,7 +60,7 @@ metrics = st.multiselect(
     "Metrics",
     ['open_rate', 'click_rate', 'bounce_rate', 'spam_complaint_rate', 'unsubscribe_rate', 
      'sends', 'opens', 'clicks', 'spam_complaints', 'unsubscribes', 'bounced'],
-    default=['open_rate', 'click_rate', 'bounce_rate', 'sends'],
+    default=['open_rate', 'click_rate', 'bounce_rate', 'sends', 'opens', 'clicks'],
     max_selections=10,
 )
 
@@ -94,8 +94,23 @@ if raw is None:
     )
     st.stop()  
 
-conn = st.connection("gsheets", type=GSheetsConnection)
-group_data = conn.read(ttl=0, worksheet="Sheet1")
+@st.cache_resource(show_spinner="Reading Group Data...")
+def get_gsheets_conn():
+    return st.connection("gsheets", type=GSheetsConnection)
+
+@st.cache_data(ttl=300)
+def read_group_sheet():
+    return get_gsheets_conn().read(worksheet="Sheet1")
+
+def ensure_group_state():
+    if "group_sheet_df" not in st.session_state:
+        df = read_group_sheet()
+        df["campaign_id"] = df["campaign_id"].astype(str)
+        df["group"] = df["group"].astype("string").fillna("default group")
+        st.session_state.group_sheet_df = df
+
+ensure_group_state()
+group_data = st.session_state.group_sheet_df
 data = raw.merge(group_data, how="left", on="campaign_id")
 
 # ---- create sends 
@@ -125,7 +140,9 @@ data["bounce_rate"] = safe_div(data["bounced"], data["sends"]).fillna(0) * 100
 data["sends"] = data["sends"].round().astype(int)
 if 'group' in data.columns:
     data['group'] = data['group'].fillna('default group')
-data.fillna(0, inplace=True)
+num_cols = data.select_dtypes(include="number").columns
+data[num_cols] = data[num_cols].fillna(0)
+
 
 st.divider()
 
@@ -227,8 +244,12 @@ edited_data = st.data_editor(
 if "group" in dimensions and "campaign_id" in dimensions:
     if st.button("Save Group", type="primary"):
         edited_data = edited_data[['campaign_id', 'group']]
+        conn = get_gsheets_conn()
         conn.update(worksheet="Sheet1", data = edited_data)
         st.success('Group Changes Saved Success!', icon="✅")
+        read_group_sheet.clear()
+        st.session_state.group_sheet_df = edited_data
+        
 
     st.write("You can modify the Klaviyo campaigns's group by editing the `group` in the table above☝️")
     st.write("Click this button after you have edited the `group`")
@@ -238,8 +259,7 @@ if "group" in dimensions and "campaign_id" not in dimensions:
 else:
     pass
 
-
-# ---------------- Sidebar AI Chatbot (Responsive) ----------------
+# Sidebar AI Chatbot
 with st.sidebar:
     st.markdown("## 🤖 Klaviyo AI")
     st.caption("Ask questions about the current dashboard data.")
