@@ -45,6 +45,7 @@ RATE_METRICS = {
 
 COUNT_METRICS = ["sends", "opens", "clicks", "spam_complaints", "unsubscribes", "bounced"]
 
+
 def safe_div(a, b):
     b = b.replace(0, pd.NA) if isinstance(b, pd.Series) else (pd.NA if b == 0 else b)
     return a / b
@@ -99,20 +100,14 @@ if raw is None:
 def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
-@st.cache_data(ttl=0)
 def read_group_sheet():
-    return get_gsheets_conn().read(worksheet="Sheet1")
+    df = get_gsheets_conn().read(worksheet="Sheet1", ttl=0) # ttl=0 makes the group data to be the latest data
+    df = df[["campaign_id", "group"]].copy()
+    df["campaign_id"] = df["campaign_id"].astype(str)
+    df["group"] = df["group"].astype("string").fillna("default group")
+    return df
 
-def ensure_group_state():
-    if "group_sheet_df" not in st.session_state:
-        df = read_group_sheet()
-        df = df[["campaign_id", "group"]].copy()
-        df["campaign_id"] = df["campaign_id"].astype(str)
-        df["group"] = df["group"].astype("string").fillna("default group")
-        st.session_state.group_sheet_df = df
-
-ensure_group_state()
-group_data = st.session_state.group_sheet_df
+group_data = read_group_sheet()
 data = raw.merge(group_data, how="left", on="campaign_id")
 
 # ---- create sends 
@@ -138,7 +133,7 @@ data["open_rate"] = safe_div(data["opens"], data["sends"]).fillna(0) * 100
 data["click_rate"] = safe_div(data["clicks"], data["sends"]).fillna(0) * 100
 data["spam_complaint_rate"] = safe_div(data["spam_complaints"], data["sends"]).fillna(0) * 100
 data["unsubscribe_rate"] = safe_div(data["unsubscribes"], data["sends"]).fillna(0) * 100
-data["bounce_rate"] = safe_div(data["bounced"], data["sends"]).fillna(0) * 100
+data["bounce_rate"] = safe_div(data["bounced"], data["sends"]).fillna(0)* 100
 data["sends"] = data["sends"].round().astype(int)
 if 'group' in data.columns:
     data['group'] = data['group'].fillna('default group')
@@ -261,16 +256,15 @@ edited_data = st.data_editor(
 
 if "group" in dimensions and "campaign_id" in dimensions:
     if st.button("Save Group", type="primary"):
-        conn = get_gsheets_conn()
-        previous_group_data = conn.read(worksheet="Sheet1", usecols=[0, 1])
         new_group_data = edited_data[['campaign_id', 'group']].copy()
-        new_group_data = new_group_data[~new_group_data['campaign_id'].isin( previous_group_data['campaign_id'] )]
+        previous_group_data = read_group_sheet()
+        previous_group_data = previous_group_data[~previous_group_data['campaign_id'].isin( new_group_data['campaign_id'] )]
         group_data_to_update = pd.concat([new_group_data, previous_group_data], ignore_index=True)
-        conn.update(worksheet="Sheet1", data = group_data_to_update)
         
+        conn = get_gsheets_conn()
+        conn.update(worksheet="Sheet1", data = group_data_to_update)
         st.success('Group Changes Saved Success!', icon="✅")
-        read_group_sheet.clear()
-        st.session_state.group_sheet_df = edited_data
+        st.rerun()
 
     st.write("You can modify the Klaviyo campaigns's group by editing the `group` in the table above☝️")
     st.write("Click this button after you have edited the `group`")

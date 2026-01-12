@@ -173,7 +173,21 @@ async def load_dashboard_data_async(start: str, end: str) -> pd.DataFrame:
         dfs = await asyncio.gather(*tasks)
 
     dfs = [d for d in dfs if d is not None and not d.empty]
-    return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+    
+    df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+    NUMERIC_COLS = [
+        "bounce_rate", "click_rate", "conversion_rate", "delivery_rate", "open_rate",
+        "spam_complaint_rate", "unsubscribe_rate",
+        "average_order_value",
+        "opens", "clicks", "delivered",
+        "spam_complaints", "unsubscribes", "bounced",
+    ]
+
+    for c in NUMERIC_COLS:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+            
+    return df
 
 
 # ----- sync wrapper
