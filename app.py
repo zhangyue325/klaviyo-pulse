@@ -54,7 +54,7 @@ def safe_div(a, b):
 dimensions = st.multiselect(
     "Dimensions",
     ['type', 'campaign_id', 'name', 'status', 'send_time', 'send_channel', 'account', 'group'],
-    default=['account', 'name', 'send_time', 'group', 'campaign_id'],
+    default=['account', 'name', 'send_time'],
     max_selections=5,
 )
 
