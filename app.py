@@ -69,7 +69,7 @@ metrics = st.multiselect(
 yesterday = datetime.date.today() - datetime.timedelta(days=1)
 d = st.date_input(
     "Filter", 
-    (yesterday - datetime.timedelta(days=30), yesterday),
+    (yesterday - datetime.timedelta(days=365), yesterday),
     # max_value=datetime.date.today(),
     # min_value=yesterday - datetime.timedelta(days=700)
     )
@@ -79,14 +79,18 @@ start = st.session_state.last_valid_range[0].strftime("%Y-%m-%d"+"T00:00:00.00Z"
 end = st.session_state.last_valid_range[1].strftime("%Y-%m-%d"+"T23:59:59.59Z")
 
 @st.cache_data(ttl=600, show_spinner="Loading Klaviyo Data...")
+# def load_dashboard_data_cached(start, end):
+#     try:
+#         data = load_dashboard_data(start, end)
+#         if data is None or not isinstance(data, pd.DataFrame) or data.empty:
+#             return None
+#         return data
+#     except Exception as e:
+#         return None
 def load_dashboard_data_cached(start, end):
-    try:
-        data = load_dashboard_data(start, end)
-        if data is None or not isinstance(data, pd.DataFrame) or data.empty:
-            return None
-        return data
-    except Exception as e:
-        return None
+    df = pd.read_csv('dummy.csv')
+    return df
+
 
 raw = load_dashboard_data_cached(start, end)
 if raw is None:
@@ -253,6 +257,7 @@ edited_data = st.data_editor(
         "unsubscribes": st.column_config.NumberColumn(format="localized", disabled=True),
         "bounced": st.column_config.NumberColumn(format="localized", disabled=True),
     })
+st.caption("* The dummy data shown in this dashboard is for demonstration purposes only.")
 
 if "group" in dimensions and "campaign_id" in dimensions:
     if st.button("Save Group", type="primary"):

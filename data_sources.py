@@ -193,3 +193,8 @@ async def load_dashboard_data_async(start: str, end: str) -> pd.DataFrame:
 # ----- sync wrapper
 def load_dashboard_data(start: str, end: str) -> pd.DataFrame:
     return asyncio.run(load_dashboard_data_async(start, end))
+
+
+if __name__ == "__main__":
+    df = load_dashboard_data("2025-04-01", "2026-01-13")
+    df.to_csv('test.csv')
